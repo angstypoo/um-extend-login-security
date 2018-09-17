@@ -13,3 +13,9 @@ Upload this file into a folder of the same name in the Wordpress Plugin Director
 
 You will then just need to activate the plugin inside of your WP admin control panel.
 
+
+Additional Notes:
+-IP's from users that successfully log in are automatically whitelisted
+-This plugin also adds functionality to login via my-account page with Woocommerce
+
+
