@@ -17,11 +17,12 @@
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       um-extend-login-security
+ * Domain Path:       /languages
  */
 
 // If this file is called directly, abort.
 if ( ! defined( 'WPINC' ) ) {
-	die;
+  die;
 }
 
 class Um_Extend_Login_Security {
@@ -52,21 +53,21 @@ class Um_Extend_Login_Security {
   }
 
   public static function activate() {
-		global $wpdb;
+    global $wpdb;
 
-		$table = $wpdb->prefix . self::$iptablename;
+    $table = $wpdb->prefix . self::$iptablename;
 
-		$charset_collate = $wpdb->get_charset_collate();
+    $charset_collate = $wpdb->get_charset_collate();
 
-		$sql = "CREATE TABLE $table (
-		   ID INT( 11 ) AUTO_INCREMENT PRIMARY KEY,
-		   title TEXT NOT NULL,
+    $sql = "CREATE TABLE $table (
+       ID INT( 11 ) AUTO_INCREMENT PRIMARY KEY,
+       title TEXT NOT NULL,
        value TEXT NOT NULL
-		) $charset_collate;";
+    ) $charset_collate;";
 
-		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
 
-		dbDelta( $sql );
+    dbDelta( $sql );
 
     $iplistarr = array(
       'master' => array(
@@ -77,20 +78,20 @@ class Um_Extend_Login_Security {
     $iplistarr = base64_encode(serialize($iplistarr));
 
     $wpdb->replace(
-			$table,
-			array(
+      $table,
+      array(
         'title' => 'iplist',
         'value' => $iplistarr
       )
-		);
+    );
 
-	}
+  }
   public static function deactivate() {
-		global $wpdb;
-		$table = $wpdb->prefix . self::$iptablename;
+    global $wpdb;
+    $table = $wpdb->prefix . self::$iptablename;
 
     $wpdb->query( "DROP TABLE IF EXISTS $table" );
-	}
+  }
 
   private function get_client_ip() {
 
@@ -138,7 +139,7 @@ class Um_Extend_Login_Security {
     global $wpdb;
     $table = $wpdb->prefix . self::$iptablename;
     $sql = "SELECT * FROM ".$table." WHERE title='iplist'";
-		$iprow = $wpdb->get_row($sql);
+    $iprow = $wpdb->get_row($sql);
     $id = $iprow->ID;
     $iplist = $iprow->value;
     $iplist = unserialize(base64_decode($iplist));
@@ -200,13 +201,13 @@ class Um_Extend_Login_Security {
 
     //update the iplist
     $wpdb->replace(
-			$table,
-			array(
+      $table,
+      array(
         'ID' => $id,
         'title' => 'iplist',
         'value' => $iplist
       )
-		);
+    );
   }
 
   private function whitelist_ip() {
@@ -214,7 +215,7 @@ class Um_Extend_Login_Security {
     global $wpdb;
     $table = $wpdb->prefix . self::$iptablename;
     $sql = "SELECT * FROM ".$table." WHERE title='iplist'";
-		$iprow = $wpdb->get_row($sql);
+    $iprow = $wpdb->get_row($sql);
     $id = $iprow->ID;
     $iplist = $iprow->value;
     $iplist = unserialize(base64_decode($iplist));
@@ -227,13 +228,13 @@ class Um_Extend_Login_Security {
 
     //update the iplist
     $wpdb->replace(
-			$table,
-			array(
+      $table,
+      array(
         'ID' => $id,
         'title' => 'iplist',
         'value' => $iplist
       )
-		);
+    );
   }
 
   private function is_ip_whitelisted() {
@@ -241,7 +242,7 @@ class Um_Extend_Login_Security {
     global $wpdb;
     $table = $wpdb->prefix . self::$iptablename;
     $sql = "SELECT * FROM ".$table." WHERE title='iplist'";
-		$iprow = $wpdb->get_row($sql);
+    $iprow = $wpdb->get_row($sql);
     $id = $iprow->ID;
     $iplist = $iprow->value;
     $iplist = unserialize(base64_decode($iplist));
@@ -261,7 +262,7 @@ class Um_Extend_Login_Security {
     global $wpdb;
     $table = $wpdb->prefix . self::$iptablename;
     $sql = "SELECT * FROM ".$table." WHERE title='iplist'";
-		$iplist = $wpdb->get_row($sql)->value;
+    $iplist = $wpdb->get_row($sql)->value;
     $iplist = unserialize(base64_decode($iplist));
     $clientip = $this->get_client_ip();
     if(array_key_exists($clientip, $iplist['list'])) {
@@ -271,20 +272,28 @@ class Um_Extend_Login_Security {
     }
   }
 
-  public function login_callback() {
+  public function login_callback($user) {
     $attempts = $this->get_user_attempts();
     if($attempts >= $this->maxattempts) {
-      if($attempts >= $this->maxattempts+1 && (!isset($_POST['g-recaptcha-response']) || !$this->checkrecaptcha($_POST['g-recaptcha-response']))) {
+      $response=0;
+      if(isset($_POST['g-recaptcha-response'])) {
+        $response = $this->checkrecaptcha($_POST['g-recaptcha-response']);
+      }
+      if($attempts >= $this->maxattempts+1 && !$response) {
+        $this->update_user_attempts();
         global $wp_error;
         $wp_error = new WP_Error();
         $wp_error->add('error', 'Recaptcha error');
         return $wp_error;
-      } else {
+      }
+      if ($response){
         //whitelist ip if successful
         $this->whitelist_ip();
-        return null;
+        return $user;
       }
+      $this->update_user_attempts();
     }
+
     $this->update_user_attempts();
   }
 
@@ -299,7 +308,7 @@ class Um_Extend_Login_Security {
       add_action('login_enqueue_scripts', array($this, 'enqueue_google_js'));
       add_action('login_form', array($this, 'google_recaptcha_div'));
     }
-    add_filter('authenticate', array($this, 'login_callback'));
+    add_filter('authenticate', array($this, 'login_callback'), 100);
     //Woocommerce compatibility
     if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', get_option( 'active_plugins' ) ) ) ) {
       if($this->get_user_attempts()>=$this->maxattempts) {
@@ -307,7 +316,6 @@ class Um_Extend_Login_Security {
         add_action('woocommerce_login_form', array($this, 'google_recaptcha_div'));
       }
     }
-    //wc uses wp_signon to authenticate which uses authenticate filter
   }
 
 
@@ -332,8 +340,8 @@ register_activation_hook( __FILE__, 'activate_um_extend_login_security' );
 register_deactivation_hook( __FILE__, 'deactivate_um_extend_login_security' );
 
 function run_um_extend_login_security() {
-	$plugin = new Um_Extend_Login_Security();
-	$plugin->run();
+  $plugin = new Um_Extend_Login_Security();
+  $plugin->run();
 }
 
 //run teh plugin
