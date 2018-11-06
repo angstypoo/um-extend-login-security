@@ -148,7 +148,7 @@ class Um_Extend_Login_Security {
     $ipexists = false;
     $clientip = $this->get_client_ip();
     //reset list every $this->lifespan days
-    if($time > $ipmaster['refreshed']+$this->lifespan) {
+    if($time > $ipmaster['refreshed']+$this->lifespan || !$iplist) {
       $iplist = array(
         'master' => array(
           'refreshed' => time()
@@ -273,28 +273,38 @@ class Um_Extend_Login_Security {
   }
 
   public function login_callback($user) {
+    //current number of previous attempts
     $attempts = $this->get_user_attempts();
-    if($attempts >= $this->maxattempts) {
+
+    //max attempts exceeded
+    if($attempts > $this->maxattempts) {
+      //response 0 in case post var is not set
       $response=0;
+      //check for valid response
       if(isset($_POST['g-recaptcha-response'])) {
         $response = $this->checkrecaptcha($_POST['g-recaptcha-response']);
       }
-      if($attempts >= $this->maxattempts+1 && !$response) {
+      //valid response
+      if($response) {
+        //whitelist ip
+        $this->whitelist_ip();
+        return $user;
+
+      //invalid response
+      } else {
         $this->update_user_attempts();
         global $wp_error;
         $wp_error = new WP_Error();
         $wp_error->add('error', 'Recaptcha error');
         return $wp_error;
       }
-      if ($response){
-        //whitelist ip if successful
-        $this->whitelist_ip();
-        return $user;
-      }
+
+    //still within allowed attempts
+    } else {
       $this->update_user_attempts();
+      return $user;
     }
 
-    $this->update_user_attempts();
   }
 
   public function enqueue_google_js() {
