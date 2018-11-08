@@ -1,5 +1,5 @@
 # um-extend-login-security
-This plugin allows extends WordPress login security by forcing users to use Google recaptcha after n unsuccessful login attempts to discourage brute force attacks.
+This plugin extends WordPress login security by forcing users to use Google recaptcha after n unsuccessful login attempts to discourage brute force attacks.
 
 Before you can use this plugin you need to go to https://www.google.com/recaptcha/admin and add a site
 
