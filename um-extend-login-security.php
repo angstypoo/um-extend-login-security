@@ -354,5 +354,5 @@ function run_um_extend_login_security() {
   $plugin->run();
 }
 
-//run teh plugin
+//run the plugin
 run_um_extend_login_security();
